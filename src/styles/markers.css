@@ -1,0 +1,25 @@
+@layer utilities {
+  .marker-yellow {
+    background-color: hsl(var(--marker-yellow) / 0.3);
+  }
+
+  .marker-green {
+    background-color: hsl(var(--marker-green) / 0.3);
+  }
+
+  .marker-blue {
+    background-color: hsl(var(--marker-blue) / 0.3);
+  }
+
+  .marker-pink {
+    background-color: hsl(var(--marker-pink) / 0.3);
+  }
+
+  .marker-orange {
+    background-color: hsl(var(--marker-orange) / 0.3);
+  }
+
+  .marker-purple {
+    background-color: hsl(var(--marker-purple) / 0.3);
+  }
+}

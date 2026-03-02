@@ -1,0 +1,9 @@
+@import "./styles/fonts.css";
+@import "./styles/theme.css";
+@import "./styles/base.css";
+@import "./styles/markers.css";
+@import "./styles/scrollbar.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

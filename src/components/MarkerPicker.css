@@ -1,0 +1,47 @@
+.marker-picker-menu {
+  position: absolute;
+  top: 2rem;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  gap: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 0.375rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.marker-color-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marker-color-none {
+  background-color: hsl(var(--muted));
+}
+
+.marker-color-yellow {
+  background-color: hsl(var(--marker-yellow));
+}
+
+.marker-color-green {
+  background-color: hsl(var(--marker-green));
+}
+
+.marker-color-blue {
+  background-color: hsl(var(--marker-blue));
+}
+
+.marker-color-pink {
+  background-color: hsl(var(--marker-pink));
+}
+
+.marker-color-orange {
+  background-color: hsl(var(--marker-orange));
+}
+
+.marker-color-purple {
+  background-color: hsl(var(--marker-purple));
+}

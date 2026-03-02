@@ -1,0 +1,4 @@
+.memo-grid-overlay {
+  background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0);
+  background-size: 24px 24px;
+}
