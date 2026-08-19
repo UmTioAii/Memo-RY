@@ -30,12 +30,11 @@
 
     --radius: 0.75rem;
 
-    --marker-yellow: 48 96% 60%;
-    --marker-green: 142 60% 50%;
-    --marker-blue: 210 80% 55%;
-    --marker-pink: 330 70% 60%;
+    --marker-red: 0 84% 60%;
     --marker-orange: 24 90% 55%;
-    --marker-purple: 270 60% 55%;
+    --marker-yellow: 48 96% 60%;
+    --marker-blue: 210 80% 55%;
+    --marker-white: 0 0% 100%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -76,12 +75,11 @@
     --input: 220 15% 18%;
     --ring: 24 80% 55%;
 
-    --marker-yellow: 48 96% 55%;
-    --marker-green: 142 55% 45%;
-    --marker-blue: 210 75% 50%;
-    --marker-pink: 330 65% 55%;
+    --marker-red: 0 84% 50%;
     --marker-orange: 24 85% 50%;
-    --marker-purple: 270 55% 50%;
+    --marker-yellow: 48 96% 55%;
+    --marker-blue: 210 75% 50%;
+    --marker-white: 0 0% 100%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;

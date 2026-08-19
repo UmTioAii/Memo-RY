@@ -6,12 +6,11 @@ import './MarkerPicker.css';
 
 const COLORS: { color: MarkerColor; label: string; className: string }[] = [
   { color: 'none', label: 'None', className: 'marker-color-none' },
-  { color: 'yellow', label: 'Yellow', className: 'marker-color-yellow' },
-  { color: 'green', label: 'Green', className: 'marker-color-green' },
-  { color: 'blue', label: 'Blue', className: 'marker-color-blue' },
-  { color: 'pink', label: 'Pink', className: 'marker-color-pink' },
+  { color: 'red', label: 'Red', className: 'marker-color-red' },
   { color: 'orange', label: 'Orange', className: 'marker-color-orange' },
-  { color: 'purple', label: 'Purple', className: 'marker-color-purple' },
+  { color: 'yellow', label: 'Yellow', className: 'marker-color-yellow' },
+  { color: 'blue', label: 'Blue', className: 'marker-color-blue' },
+  { color: 'white', label: 'White', className: 'marker-color-white' },
 ];
 
 interface MarkerPickerProps {

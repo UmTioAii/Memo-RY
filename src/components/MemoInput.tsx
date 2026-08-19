@@ -1,27 +1,35 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Send, ImagePlus, X } from 'lucide-react';
+import { Plus, Send, ImagePlus, X, Palette, Tags, Check } from 'lucide-react';
 import { MarkerPicker } from './MarkerPicker';
 import { useI18n } from '@/lib/i18n';
 import type { MarkerColor, Attachment } from '@/lib/types';
+import { useMemos } from '@/hooks/useMemos';
+import { HexColorPicker } from 'react-colorful';
+import * as Popover from '@radix-ui/react-popover';
 
 interface MemoInputProps {
-  onAdd: (text: string, color: MarkerColor, columnId?: string, extraAttachments?: Attachment[]) => void;
+  onAdd: (text: string, color: MarkerColor, columnId?: string, extraAttachments?: Attachment[], customColor?: string, tagIds?: string[]) => void;
 }
 
 export function MemoInput({ onAdd }: MemoInputProps) {
   const { t } = useI18n();
+  const { tags, savedColors, saveColor, removeSavedColor } = useMemos();
   const [text, setText] = useState('');
   const [marker, setMarker] = useState<MarkerColor>('none');
+  const [customColor, setCustomColor] = useState<string | undefined>();
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [imageAttachments, setImageAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (text.trim() || imageAttachments.length > 0) {
-      onAdd(text.trim(), marker, undefined, imageAttachments);
+      onAdd(text.trim(), marker, undefined, imageAttachments, customColor, tagIds);
       setText('');
       setMarker('none');
+      setCustomColor(undefined);
+      setTagIds([]);
       setImageAttachments([]);
       setExpanded(false);
     }
@@ -107,7 +115,114 @@ export function MemoInput({ onAdd }: MemoInputProps) {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <MarkerPicker selected={marker} onSelect={setMarker} />
+              <MarkerPicker 
+                selected={marker} 
+                onSelect={(c) => { 
+                  setMarker(c); 
+                  if (c !== 'none') setCustomColor(undefined); 
+                }} 
+              />
+              
+              <Popover.Root>
+                <Popover.Trigger asChild>
+                  <button className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Cor Customizada">
+                    <Palette className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content className="z-50 p-3 bg-popover border border-border rounded-xl shadow-xl w-[224px]">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium">Cor de Fundo</span>
+                      {customColor && (
+                        <button onClick={() => setCustomColor(undefined)} className="text-[10px] text-muted-foreground hover:underline">
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex justify-center">
+                      <HexColorPicker 
+                        color={customColor || '#ffffff'} 
+                        onChange={(c) => {
+                          setCustomColor(c);
+                          setMarker('none');
+                        }} 
+                      />
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Cores Salvas</span>
+                        <button 
+                          onClick={() => saveColor(customColor || '#ffffff')}
+                          className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Plus className="h-3 w-3" /> Salvar atual
+                        </button>
+                      </div>
+                      {savedColors.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {savedColors.map(color => (
+                            <div key={color} className="group/color relative">
+                              <button 
+                                onClick={() => setCustomColor(color)}
+                                className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                              />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeSavedColor(color); }}
+                                className="absolute -top-1 -right-1 hidden group-hover/color:flex items-center justify-center w-3 h-3 bg-destructive text-destructive-foreground rounded-full shadow-sm z-10"
+                              >
+                                <X className="w-2 h-2" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground">Nenhuma cor salva.</p>
+                      )}
+                    </div>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+
+              <Popover.Root>
+                <Popover.Trigger asChild>
+                  <button className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Adicionar Tags">
+                    <Tags className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content className="z-50 p-2 bg-popover border border-border rounded-xl shadow-xl w-48 max-h-60 overflow-y-auto">
+                    <div className="mb-2">
+                      <span className="text-xs font-medium">Selecionar Tags</span>
+                    </div>
+                    {tags.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhuma tag criada.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {tags.map(tag => {
+                          const isSelected = tagIds.includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              onClick={() => setTagIds(prev => isSelected ? prev.filter(id => id !== tag.id) : [...prev, tag.id])}
+                              className="flex items-center justify-between p-1.5 text-xs rounded hover:bg-accent transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                                <span>{tag.name}</span>
+                              </div>
+                              {isSelected && <Check className="h-3 w-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

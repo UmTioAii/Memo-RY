@@ -1,14 +1,23 @@
-export type MarkerColor = 'yellow' | 'green' | 'blue' | 'pink' | 'orange' | 'purple' | 'none';
+export type MarkerColor = 'red' | 'orange' | 'yellow' | 'blue' | 'white' | 'none';
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 export interface MemoItem {
   id: string;
   text: string;
   completed: boolean;
   markerColor: MarkerColor;
+  customColor?: string;
+  tagIds?: string[];
   createdAt: number;
   updatedAt: number;
   attachments: Attachment[];
   columnId?: string; // which column this memo belongs to (for board view)
+  previousColumnId?: string; // remembers the previous column when marked as done
 }
 
 export interface Attachment {

@@ -9,6 +9,7 @@ import { FilterBar } from '@/components/FilterBar';
 import { ViewToggle } from '@/components/ViewToggle';
 import { BoardView } from '@/components/BoardView';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { TagManager } from '@/components/TagManager';
 import { useTheme } from '@/hooks/useTheme';
 import { useMemos } from '@/hooks/useMemos';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -21,7 +22,7 @@ const Index = () => {
   const { theme, toggleTheme } = useTheme();
   const {
     memos, addMemo, toggleMemo, deleteMemo, updateMemo, setMarkerColor, clearCompleted, moveMemoToColumn, reorderListMemo,
-    columns, addColumn, renameColumn, deleteColumn,
+    columns, addColumn, renameColumn, deleteColumn, reorderColumns,
   } = useMemos();
   const [filter, setFilter] = useState<FilterType>('all');
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>('memory-view', 'list');
@@ -111,6 +112,7 @@ const Index = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <TagManager />
             <ViewToggle mode={viewMode} onChange={setViewMode} />
             <LanguageSwitcher />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -192,6 +194,7 @@ const Index = () => {
               memos={boardMemos} columns={columns} onAddMemo={addMemo} onToggle={toggleMemo}
               onDelete={deleteMemo} onUpdate={updateMemo} onSetMarker={setMarkerColor}
               onMoveMemo={moveMemoToColumn} onAddColumn={addColumn} onRenameColumn={renameColumn} onDeleteColumn={deleteColumn}
+              onReorderColumns={reorderColumns}
             />
           </motion.div>
         )}

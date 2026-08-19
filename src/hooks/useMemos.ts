@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useLocalStorage } from './useLocalStorage';
-import { MemoItem, MarkerColor, Attachment, BoardColumn } from '@/lib/types';
+import { MemoItem, MarkerColor, Attachment, BoardColumn, Tag } from '@/lib/types';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -29,26 +29,47 @@ export function useMemos() {
     { id: 'attention', name: 'Atenção', order: 1 },
     { id: 'done', name: 'Concluído', order: 2 },
   ]);
+  const [tags, setTags] = useLocalStorage<Tag[]>('memory-tags', []);
+  const [savedColors, setSavedColors] = useLocalStorage<string[]>('memory-saved-colors', []);
 
-  const addMemo = useCallback((text: string, markerColor: MarkerColor = 'none', columnId?: string, extraAttachments?: Attachment[]) => {
+  const addMemo = useCallback((text: string, markerColor: MarkerColor = 'none', columnId?: string, extraAttachments?: Attachment[], customColor?: string, tagIds?: string[]) => {
     const attachments = [...detectAttachments(text), ...(extraAttachments || [])];
     const memo: MemoItem = {
       id: generateId(),
       text,
       completed: false,
       markerColor,
+      customColor,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       attachments,
       columnId,
+      tagIds: tagIds || [],
     };
     setMemos(prev => [memo, ...prev]);
   }, [setMemos]);
 
   const toggleMemo = useCallback((id: string) => {
-    setMemos(prev => prev.map(m =>
-      m.id === id ? { ...m, completed: !m.completed, updatedAt: Date.now() } : m
-    ));
+    setMemos(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      const isNowCompleted = !m.completed;
+      if (isNowCompleted) {
+        return {
+          ...m,
+          completed: true,
+          previousColumnId: m.columnId,
+          columnId: 'done',
+          updatedAt: Date.now()
+        };
+      } else {
+        return {
+          ...m,
+          completed: false,
+          columnId: m.previousColumnId,
+          updatedAt: Date.now()
+        };
+      }
+    }));
   }, [setMemos]);
 
   const deleteMemo = useCallback((id: string) => {
@@ -69,7 +90,19 @@ export function useMemos() {
 
   const setMarkerColor = useCallback((id: string, color: MarkerColor) => {
     setMemos(prev => prev.map(m =>
-      m.id === id ? { ...m, markerColor: color, updatedAt: Date.now() } : m
+      m.id === id ? { ...m, markerColor: color, customColor: undefined, updatedAt: Date.now() } : m
+    ));
+  }, [setMemos]);
+
+  const setCustomColor = useCallback((id: string, color?: string) => {
+    setMemos(prev => prev.map(m =>
+      m.id === id ? { ...m, customColor: color, markerColor: color ? 'none' : m.markerColor, updatedAt: Date.now() } : m
+    ));
+  }, [setMemos]);
+
+  const setMemoTags = useCallback((id: string, tagIds: string[]) => {
+    setMemos(prev => prev.map(m =>
+      m.id === id ? { ...m, tagIds, updatedAt: Date.now() } : m
     ));
   }, [setMemos]);
 
@@ -77,22 +110,27 @@ export function useMemos() {
     setMemos(prev => {
       const memo = prev.find(m => m.id === id);
       if (!memo) return prev;
-      // Remove memo from current position
+      
+      const isNowDone = columnId === 'done';
       const without = prev.filter(m => m.id !== id);
-      const updated = { ...memo, columnId, updatedAt: Date.now() };
+      
+      const updated: MemoItem = { 
+        ...memo, 
+        columnId, 
+        completed: isNowDone,
+        previousColumnId: isNowDone && memo.columnId !== 'done' ? memo.columnId : memo.previousColumnId,
+        updatedAt: Date.now() 
+      };
       
       if (targetIndex !== undefined) {
-        // Find memos in the target column to calculate insertion point
         const colMemos = without.filter(m => m.columnId === columnId);
         const clampedIndex = Math.min(targetIndex, colMemos.length);
         
         if (clampedIndex >= colMemos.length) {
-          // Insert after last memo in column
           const lastColMemo = colMemos[colMemos.length - 1];
           const globalIndex = lastColMemo ? without.indexOf(lastColMemo) + 1 : without.length;
           without.splice(globalIndex, 0, updated);
         } else {
-          // Insert before the memo at targetIndex
           const targetMemo = colMemos[clampedIndex];
           const globalIndex = without.indexOf(targetMemo);
           without.splice(globalIndex, 0, updated);
@@ -119,6 +157,19 @@ export function useMemos() {
     });
   }, [setMemos]);
 
+  const reorderColumns = useCallback((activeId: string, overId: string) => {
+    setColumns(prev => {
+      const oldIndex = prev.findIndex(c => c.id === activeId);
+      const newIndex = prev.findIndex(c => c.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      
+      const newCols = [...prev];
+      const [moved] = newCols.splice(oldIndex, 1);
+      newCols.splice(newIndex, 0, moved);
+      return newCols.map((col, idx) => ({ ...col, order: idx }));
+    });
+  }, [setColumns]);
+
   const clearCompleted = useCallback(() => {
     setMemos(prev => prev.filter(m => !m.completed));
   }, [setMemos]);
@@ -138,8 +189,40 @@ export function useMemos() {
     setMemos(prev => prev.map(m => m.columnId === id ? { ...m, columnId: undefined } : m));
   }, [setColumns, setMemos]);
 
+  // Tag management
+  const addTag = useCallback((name: string, color: string) => {
+    setTags(prev => [...prev, { id: generateId(), name, color }]);
+  }, [setTags]);
+
+  const updateTag = useCallback((id: string, name: string, color: string) => {
+    setTags(prev => prev.map(t => t.id === id ? { ...t, name, color } : t));
+  }, [setTags]);
+
+  const deleteTag = useCallback((id: string) => {
+    setTags(prev => prev.filter(t => t.id !== id));
+    // Remove the deleted tag from all memos
+    setMemos(prev => prev.map(m => ({
+      ...m,
+      tagIds: m.tagIds?.filter(tId => tId !== id)
+    })));
+  }, [setTags, setMemos]);
+
+  // Saved Custom Colors management
+  const saveColor = useCallback((color: string) => {
+    setSavedColors(prev => {
+      if (prev.includes(color)) return prev;
+      return [...prev, color];
+    });
+  }, [setSavedColors]);
+
+  const removeSavedColor = useCallback((color: string) => {
+    setSavedColors(prev => prev.filter(c => c !== color));
+  }, [setSavedColors]);
+
   return {
-    memos, addMemo, toggleMemo, deleteMemo, updateMemo, setMarkerColor, clearCompleted, moveMemoToColumn, reorderListMemo,
-    columns, addColumn, renameColumn, deleteColumn,
+    memos, addMemo, toggleMemo, deleteMemo, updateMemo, setMarkerColor, setCustomColor, setMemoTags, clearCompleted, moveMemoToColumn, reorderListMemo,
+    columns, addColumn, renameColumn, deleteColumn, reorderColumns,
+    tags, addTag, updateTag, deleteTag,
+    savedColors, saveColor, removeSavedColor
   };
 }
