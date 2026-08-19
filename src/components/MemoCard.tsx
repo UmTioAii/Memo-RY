@@ -83,15 +83,16 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
       } ${memo.completed ? 'bg-green-100/60 dark:bg-green-900/30 border-green-200 dark:border-green-800' : 'bg-card border-border'}`}
       style={
         memo.completed
-          ? { borderLeftColor: 'rgb(34 197 94)' } // Tailwind green-500
+          ? { borderLeftColor: 'rgb(34 197 94)' }
           : {
-              ...(memo.customColor 
-                ? { borderLeftColor: memo.customColor } 
+              ...(memo.customColor
+                ? { borderLeftColor: memo.customColor }
                 : (memo.markerColor !== 'none' ? { borderLeftColor: `hsl(var(--marker-${memo.markerColor}))` } : {})
               )
             }
       }
     >
+      {/* Topo: checkbox + conteúdo */}
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(memo.id)}
@@ -130,9 +131,9 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
               {memoTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {memoTags.map(tag => (
-                    <span 
-                      key={tag.id} 
-                      className="px-2 py-0.5 rounded-full text-[10px] font-medium shadow-sm" 
+                    <span
+                      key={tag.id}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-medium shadow-sm"
                       style={{ backgroundColor: tag.color, color: getContrastYIQ(tag.color) }}
                     >
                       {tag.name}
@@ -140,8 +141,8 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                   ))}
                 </div>
               )}
-              
-              <p 
+
+              <p
                 className={`text-sm leading-relaxed whitespace-pre-wrap break-words text-foreground px-1 -mx-1 rounded ${
                   memo.completed
                     ? 'bg-green-500/20 dark:bg-green-500/20'
@@ -163,18 +164,20 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                   ))}
                 </div>
               )}
-
-              <p className="mt-2 text-xs text-muted-foreground">
-                {formatDistanceToNow(memo.createdAt, { addSuffix: true, locale: dateLocales[locale] })}
-              </p>
             </>
           )}
         </div>
+      </div>
 
-        {!editing && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Rodapé: timestamp + ações (visíveis no hover) */}
+      {!editing && (
+        <div className="flex items-center justify-between mt-2 pt-1 ml-7 sm:ml-8 gap-1">
+          <p className="text-xs text-muted-foreground shrink-0">
+            {formatDistanceToNow(memo.createdAt, { addSuffix: true, locale: dateLocales[locale] })}
+          </p>
+          <div className="flex items-center flex-wrap gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <MarkerPicker selected={memo.markerColor} onSelect={(c) => onSetMarker(memo.id, c)} compact />
-            
+
             <Popover.Root>
               <Popover.Trigger asChild>
                 <button className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Cor Customizada">
@@ -194,11 +197,11 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                   <div className="flex justify-center">
                     <HexColorPicker color={memo.customColor || '#ffffff'} onChange={(c) => setCustomColor(memo.id, c)} />
                   </div>
-                  
+
                   <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium">Cores Salvas</span>
-                      <button 
+                      <button
                         onClick={() => saveColor(memo.customColor || '#ffffff')}
                         className="text-[10px] text-primary hover:underline flex items-center gap-1"
                       >
@@ -209,7 +212,7 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                       <div className="flex flex-wrap gap-1.5">
                         {savedColors.map(color => (
                           <div key={color} className="group/color relative">
-                            <button 
+                            <button
                               onClick={() => setCustomColor(memo.id, color)}
                               className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
                               style={{ backgroundColor: color }}
@@ -282,8 +285,8 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }

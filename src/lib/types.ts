@@ -16,8 +16,9 @@ export interface MemoItem {
   createdAt: number;
   updatedAt: number;
   attachments: Attachment[];
-  columnId?: string; // which column this memo belongs to (for board view)
-  previousColumnId?: string; // remembers the previous column when marked as done
+  columnId?: string;          // board view: which kanban column
+  previousColumnId?: string;  // board view: column before marking done
+  listSectionId?: string;     // list view: which section (e.g. 'todo', 'done', or custom id)
 }
 
 export interface Attachment {
@@ -25,7 +26,7 @@ export interface Attachment {
   url: string;
   title?: string;
   thumbnail?: string;
-  isBase64?: boolean; // for uploaded images
+  isBase64?: boolean;
 }
 
 export type FilterType = 'all' | 'active' | 'completed';
@@ -36,4 +37,11 @@ export interface BoardColumn {
   id: string;
   name: string;
   order: number;
+}
+
+export interface ListSection {
+  id: string;
+  name: string;
+  order: number;
+  collapsed?: boolean;
 }
