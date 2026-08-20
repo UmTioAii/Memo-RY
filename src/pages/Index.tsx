@@ -8,6 +8,7 @@ import { BoardView } from '@/components/BoardView';
 import { ViewToggle } from '@/components/ViewToggle';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { TagManager } from '@/components/TagManager';
+import { NotesPanel } from '@/components/NotesPanel';
 import { useTheme } from '@/hooks/useTheme';
 import { useMemos } from '@/hooks/useMemos';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -20,7 +21,7 @@ const Index = () => {
   const { theme, toggleTheme } = useTheme();
   const {
     memos,
-    addMemo, toggleMemo, deleteMemo, updateMemo, setMarkerColor,
+    addMemo, addMultipleMemos, deleteMultipleMemos, toggleMemo, deleteMemo, updateMemo, setMarkerColor,
     moveMemoToColumn, reorderInSection, moveMemoToListSection,
     columns, addColumn, renameColumn, deleteColumn, reorderColumns,
     listSections, addListSection, renameListSection, deleteListSection, toggleListSectionCollapsed,
@@ -58,6 +59,7 @@ const Index = () => {
 
           <div className="flex items-center gap-2">
             <TagManager />
+            <NotesPanel />
             <ViewToggle mode={viewMode} onChange={setViewMode} />
             <LanguageSwitcher />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -92,6 +94,8 @@ const Index = () => {
                   memos={listMemos}
                   listSections={listSections}
                   onAddMemo={addMemo}
+                  onAddMultipleMemos={addMultipleMemos}
+                  onDeleteMultipleMemos={deleteMultipleMemos}
                   onToggle={toggleMemo}
                   onDelete={deleteMemo}
                   onUpdate={updateMemo}

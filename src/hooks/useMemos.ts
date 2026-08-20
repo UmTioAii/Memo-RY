@@ -96,6 +96,43 @@ export function useMemos() {
     setMemos(prev => [...prev, memo]);
   }, [setMemos]);
 
+  const addMultipleMemos = useCallback((
+    items: Array<{
+      text: string;
+      markerColor?: MarkerColor;
+      columnId?: string;
+      customColor?: string;
+      tagIds?: string[];
+      listSectionId?: string;
+    }>
+  ) => {
+    const newMemos: MemoItem[] = items
+      .filter(item => item.text.trim().length > 0)
+      .map((item, idx) => ({
+        id: generateId() + idx,
+        text: item.text.trim(),
+        completed: false,
+        markerColor: item.markerColor || 'none',
+        customColor: item.customColor,
+        createdAt: Date.now() + idx,
+        updatedAt: Date.now() + idx,
+        attachments: detectAttachments(item.text),
+        columnId: item.columnId,
+        listSectionId: item.columnId ? undefined : (item.listSectionId || 'todo'),
+        tagIds: item.tagIds || [],
+      }));
+
+    if (newMemos.length > 0) {
+      setMemos(prev => [...prev, ...newMemos]);
+    }
+  }, [setMemos]);
+
+  const deleteMultipleMemos = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    setMemos(prev => prev.filter(m => !set.has(m.id)));
+  }, [setMemos]);
+
   const toggleMemo = useCallback((id: string) => {
     setMemos(prev => prev.map(m => {
       if (m.id !== id) return m;
@@ -350,7 +387,7 @@ export function useMemos() {
   }, [setSavedColors]);
 
   return {
-    memos, addMemo, toggleMemo, deleteMemo, updateMemo, setMarkerColor, setCustomColor, setMemoTags,
+    memos, addMemo, addMultipleMemos, deleteMultipleMemos, toggleMemo, deleteMemo, updateMemo, setMarkerColor, setCustomColor, setMemoTags,
     clearCompleted, moveMemoToColumn, reorderListMemo, reorderInSection, moveMemoToListSection,
     columns, addColumn, renameColumn, deleteColumn, reorderColumns,
     listSections, addListSection, renameListSection, deleteListSection, toggleListSectionCollapsed,

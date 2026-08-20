@@ -81,7 +81,23 @@ function ColumnAddCard({ columnId, onAdd }: { columnId: string; onAdd: (text: st
         rows={2}
         autoFocus
         onKeyDown={e => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAdd();
+          if (e.key === 'Enter') {
+            if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+              e.preventDefault();
+              const target = e.currentTarget;
+              const start = target.selectionStart;
+              const end = target.selectionEnd;
+              const val = target.value;
+              const next = val.substring(0, start) + '\n' + val.substring(end);
+              setText(next);
+              setTimeout(() => {
+                target.selectionStart = target.selectionEnd = start + 1;
+              }, 0);
+            } else {
+              e.preventDefault();
+              handleAdd();
+            }
+          }
           if (e.key === 'Escape') setOpen(false);
         }}
       />
@@ -329,8 +345,8 @@ function SortableColumnWrapper({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-xl p-3 border min-w-0 transition-all duration-200 bg-muted/50 border-border/50 ${
-        isDragging ? 'opacity-40 shadow-xl scale-[1.02] z-50' : ''
+      className={`flex-1 min-w-[280px] sm:min-w-[300px] shrink-0 rounded-2xl p-3.5 border transition-all duration-200 bg-muted/40 border-border/60 shadow-sm ${
+        isDragging ? 'opacity-40 shadow-2xl scale-[1.02] z-50' : ''
       } ${
         isDragOver && !isDragging
           ? 'bg-primary/5 border-primary/40 ring-2 ring-primary/20'
@@ -500,12 +516,7 @@ export function BoardView({
           items={sortedColumns.map(c => c.id)} 
           strategy={horizontalListSortingStrategy}
         >
-          <div
-            className="flex flex-col gap-3 md:grid md:gap-3"
-            style={{
-              gridTemplateColumns: `repeat(${sortedColumns.length}, minmax(180px, 1fr)) auto`,
-            } as React.CSSProperties}
-          >
+          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start min-w-full snap-x scrollbar-thin scrollbar-thumb-muted-foreground/20">
             {sortedColumns.map(col => {
               const colMemos = memos.filter(m => m.columnId === col.id);
               return (
@@ -535,9 +546,9 @@ export function BoardView({
             })}
 
             {/* Add column */}
-            <div className="w-full md:min-w-[140px] md:max-w-[200px]">
+            <div className="w-[200px] min-w-[200px] shrink-0">
               {addingCol ? (
-                <div className="bg-muted/50 rounded-xl p-3 border border-border/50">
+                <div className="bg-muted/40 rounded-2xl p-3 border border-border/60 shadow-sm">
                   <input
                     value={newColName}
                     onChange={e => setNewColName(e.target.value)}
@@ -547,17 +558,17 @@ export function BoardView({
                     onKeyDown={e => { if (e.key === 'Enter') handleAddColumn(); if (e.key === 'Escape') setAddingCol(false); }}
                   />
                   <div className="flex gap-1.5 mt-2">
-                    <button onClick={handleAddColumn} disabled={!newColName.trim()} className="px-2.5 py-1 text-[10px] bg-primary text-primary-foreground rounded-md disabled:opacity-40">{t('create')}</button>
+                    <button onClick={handleAddColumn} disabled={!newColName.trim()} className="px-2.5 py-1 text-[10px] bg-primary text-primary-foreground rounded-md disabled:opacity-40 font-medium">{t('create')}</button>
                     <button onClick={() => setAddingCol(false)} className="px-2 py-1 text-[10px] text-muted-foreground">{t('cancel')}</button>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => setAddingCol(true)}
-                  className="w-full h-20 flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+                  className="w-full h-24 flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors bg-card/40"
                 >
                   <Plus className="h-4 w-4" />
-                  <span className="text-[10px] font-medium">{t('addColumn')}</span>
+                  <span className="text-xs font-medium">{t('addColumn')}</span>
                 </button>
               )}
             </div>

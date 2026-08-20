@@ -88,7 +88,23 @@ export function MemoInput({ onAdd }: MemoInputProps) {
             autoFocus
             onPaste={handlePaste}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit();
+              if (e.key === 'Enter') {
+                if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+                  e.preventDefault();
+                  const target = e.currentTarget;
+                  const start = target.selectionStart;
+                  const end = target.selectionEnd;
+                  const val = target.value;
+                  const next = val.substring(0, start) + '\n' + val.substring(end);
+                  setText(next);
+                  setTimeout(() => {
+                    target.selectionStart = target.selectionEnd = start + 1;
+                  }, 0);
+                } else {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }
               if (e.key === 'Escape') { setExpanded(false); setText(''); setImageAttachments([]); }
             }}
           />

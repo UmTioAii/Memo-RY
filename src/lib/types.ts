@@ -45,3 +45,30 @@ export interface ListSection {
   order: number;
   collapsed?: boolean;
 }
+
+export type NoteColor = MarkerColor;
+
+export type NoteAttachmentType = 'photo' | 'audio' | 'link' | 'video' | 'map' | 'file';
+
+export interface NoteAttachment {
+  id: string;
+  type: NoteAttachmentType;
+  mediaId?: string;     // IndexedDB id (photo / audio / file)
+  url?: string;         // URL (link / video / map)
+  name?: string;        // original file name or title
+  size?: number;        // file size in bytes
+  mimeType?: string;    // MIME type
+  duration?: number;    // audio duration in seconds
+  createdAt: number;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  color: NoteColor;
+  customColor?: string;
+  createdAt: number;
+  updatedAt: number;
+  noteAttachments?: NoteAttachment[];
+}

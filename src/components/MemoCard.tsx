@@ -113,7 +113,23 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                 rows={3}
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave();
+                  if (e.key === 'Enter') {
+                    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+                      e.preventDefault();
+                      const target = e.currentTarget;
+                      const start = target.selectionStart;
+                      const end = target.selectionEnd;
+                      const val = target.value;
+                      const next = val.substring(0, start) + '\n' + val.substring(end);
+                      setEditText(next);
+                      setTimeout(() => {
+                        target.selectionStart = target.selectionEnd = start + 1;
+                      }, 0);
+                    } else {
+                      e.preventDefault();
+                      handleSave();
+                    }
+                  }
                   if (e.key === 'Escape') setEditing(false);
                 }}
               />
@@ -171,16 +187,16 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
 
       {/* Rodapé: timestamp + ações (visíveis no hover) */}
       {!editing && (
-        <div className="flex items-center justify-between mt-2 pt-1 ml-7 sm:ml-8 gap-1">
-          <p className="text-xs text-muted-foreground shrink-0">
+        <div className="flex items-center justify-between mt-2 pt-1 ml-7 sm:ml-8 min-h-[28px]">
+          <p className="text-xs text-muted-foreground truncate mr-1.5 select-none">
             {formatDistanceToNow(memo.createdAt, { addSuffix: true, locale: dateLocales[locale] })}
           </p>
-          <div className="flex items-center flex-wrap gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <MarkerPicker selected={memo.markerColor} onSelect={(c) => onSetMarker(memo.id, c)} compact />
 
             <Popover.Root>
               <Popover.Trigger asChild>
-                <button className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Cor Customizada">
+                <button className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0" title="Cor Customizada">
                   <Palette className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </Popover.Trigger>
@@ -237,7 +253,7 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
 
             <Popover.Root>
               <Popover.Trigger asChild>
-                <button className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Adicionar Tags">
+                <button className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0" title="Adicionar Tags">
                   <Tags className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </Popover.Trigger>
@@ -274,13 +290,13 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
 
             <button
               onClick={() => { setEditText(memo.text); setEditing(true); }}
-              className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors"
+              className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0"
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
             <button
               onClick={() => onDelete(memo.id)}
-              className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-destructive/10 transition-colors"
+              className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-destructive/10 transition-colors shrink-0"
             >
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </button>
