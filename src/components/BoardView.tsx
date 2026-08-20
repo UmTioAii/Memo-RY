@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Pencil, Check, X, MoreHorizontal, GripVertical, GripHorizontal, Palette, Tags } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, MoreHorizontal, GripVertical, GripHorizontal, Tags } from 'lucide-react';
 import type { BoardColumn, MemoItem, MarkerColor, Attachment } from '@/lib/types';
 import { MemoCard } from './MemoCard';
-import { MarkerPicker } from './MarkerPicker';
 import { useI18n } from '@/lib/i18n';
 import { useMemos } from '@/hooks/useMemos';
-import { HexColorPicker } from 'react-colorful';
+import { RichTextEditor } from './RichTextEditor';
 import * as Popover from '@radix-ui/react-popover';
 import {
   DndContext,
@@ -15,8 +13,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  DraggableAttributes
 } from '@dnd-kit/core';
+import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -41,18 +41,16 @@ interface BoardViewProps {
 
 function ColumnAddCard({ columnId, onAdd }: { columnId: string; onAdd: (text: string, color: MarkerColor, colId: string, attachments?: Attachment[], customColor?: string, tagIds?: string[]) => void }) {
   const { t } = useI18n();
-  const { tags, savedColors, saveColor, removeSavedColor } = useMemos();
+  const { tags } = useMemos();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
-  const [marker, setMarker] = useState<MarkerColor>('none');
   const [customColor, setCustomColor] = useState<string | undefined>();
   const [tagIds, setTagIds] = useState<string[]>([]);
 
   const handleAdd = () => {
     if (text.trim()) {
-      onAdd(text.trim(), marker, columnId, undefined, customColor, tagIds);
+      onAdd(text.trim(), 'none', columnId, undefined, customColor, tagIds);
       setText('');
-      setMarker('none');
       setCustomColor(undefined);
       setTagIds([]);
       setOpen(false);
@@ -72,112 +70,25 @@ function ColumnAddCard({ columnId, onAdd }: { columnId: string; onAdd: (text: st
   }
 
   return (
-    <div className="p-2 bg-card rounded-lg border border-border">
-      <textarea
+    <div className="p-2.5 bg-card rounded-xl border border-border shadow-xs flex flex-col gap-2">
+      <RichTextEditor
         value={text}
-        onChange={e => setText(e.target.value)}
+        onChange={setText}
+        onSubmit={handleAdd}
+        onCancel={() => { setOpen(false); setText(''); setCustomColor(undefined); setTagIds([]); }}
         placeholder={t('writeSomething')}
-        className="w-full rounded-md bg-background border border-input px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-        rows={2}
         autoFocus
-        onKeyDown={e => {
-          if (e.key === 'Enter') {
-            if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
-              e.preventDefault();
-              const target = e.currentTarget;
-              const start = target.selectionStart;
-              const end = target.selectionEnd;
-              const val = target.value;
-              const next = val.substring(0, start) + '\n' + val.substring(end);
-              setText(next);
-              setTimeout(() => {
-                target.selectionStart = target.selectionEnd = start + 1;
-              }, 0);
-            } else {
-              e.preventDefault();
-              handleAdd();
-            }
-          }
-          if (e.key === 'Escape') setOpen(false);
-        }}
+        minHeight={60}
+        maxHeight={200}
+        toolbarPosition="bottom"
+        cardColor={customColor}
+        onCardColorChange={setCustomColor}
       />
-      <div className="flex items-center justify-between mt-2 gap-1">
+      <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1 shrink-0">
-          <MarkerPicker 
-            selected={marker} 
-            onSelect={(c) => {
-              setMarker(c);
-              if (c !== 'none') setCustomColor(undefined);
-            }} 
-            compact 
-          />
-          
           <Popover.Root>
             <Popover.Trigger asChild>
-              <button className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Cor Customizada">
-                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content className="z-50 p-3 bg-popover border border-border rounded-xl shadow-xl w-[224px]">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium">Cor de Fundo</span>
-                  {customColor && (
-                    <button onClick={() => setCustomColor(undefined)} className="text-[10px] text-muted-foreground hover:underline">
-                      Limpar
-                    </button>
-                  )}
-                </div>
-                <div className="flex justify-center">
-                  <HexColorPicker 
-                    color={customColor || '#ffffff'} 
-                    onChange={(c) => {
-                      setCustomColor(c);
-                      setMarker('none');
-                    }} 
-                  />
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">Cores Salvas</span>
-                    <button 
-                      onClick={() => saveColor(customColor || '#ffffff')}
-                      className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                    >
-                      <Plus className="h-3 w-3" /> Salvar atual
-                    </button>
-                  </div>
-                  {savedColors.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {savedColors.map(color => (
-                        <div key={color} className="group/color relative">
-                          <button 
-                            onClick={() => setCustomColor(color)}
-                            className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
-                            style={{ backgroundColor: color }}
-                            title={color}
-                          />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeSavedColor(color); }}
-                            className="absolute -top-1 -right-1 hidden group-hover/color:flex items-center justify-center w-3 h-3 bg-destructive text-destructive-foreground rounded-full shadow-sm z-10"
-                          >
-                            <X className="w-2 h-2" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground">Nenhuma cor salva.</p>
-                  )}
-                </div>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-
-          <Popover.Root>
-            <Popover.Trigger asChild>
-              <button className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Adicionar Tags">
+              <button type="button" className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Adicionar Tags">
                 <Tags className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </Popover.Trigger>
@@ -195,6 +106,7 @@ function ColumnAddCard({ columnId, onAdd }: { columnId: string; onAdd: (text: st
                       return (
                         <button
                           key={tag.id}
+                          type="button"
                           onClick={() => setTagIds(prev => isSelected ? prev.filter(id => id !== tag.id) : [...prev, tag.id])}
                           className="flex items-center justify-between p-1.5 text-xs rounded hover:bg-accent transition-colors"
                         >
@@ -213,8 +125,8 @@ function ColumnAddCard({ columnId, onAdd }: { columnId: string; onAdd: (text: st
           </Popover.Root>
         </div>
         <div className="flex gap-1 shrink-0">
-          <button onClick={() => { setOpen(false); setText(''); setMarker('none'); setCustomColor(undefined); setTagIds([]); }} className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground">{t('cancel')}</button>
-          <button onClick={handleAdd} disabled={!text.trim()} className="px-2 py-1 text-[10px] bg-primary text-primary-foreground rounded-md disabled:opacity-40">{t('add')}</button>
+          <button type="button" onClick={() => { setOpen(false); setText(''); setCustomColor(undefined); setTagIds([]); }} className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground">{t('cancel')}</button>
+          <button type="button" onClick={handleAdd} disabled={!text.trim()} className="px-2.5 py-1 text-[10px] bg-primary text-primary-foreground font-medium rounded-md disabled:opacity-40">{t('add')}</button>
         </div>
       </div>
     </div>
@@ -226,8 +138,8 @@ function ColumnHeader({ column, count, onRename, onDelete, dragListeners, dragAt
   count: number;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
-  dragListeners: any;
-  dragAttributes: any;
+  dragListeners?: SyntheticListenerMap;
+  dragAttributes?: DraggableAttributes;
 }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -304,6 +216,28 @@ function ColumnHeader({ column, count, onRename, onDelete, dragListeners, dragAt
   );
 }
 
+interface SortableColumnWrapperProps {
+  col: BoardColumn;
+  colMemos: MemoItem[];
+  onRenameColumn: (id: string, name: string) => void;
+  onDeleteColumn: (id: string) => void;
+  dragOverCol: string | null;
+  setDragOverCol: (colId: string | null) => void;
+  setDropIndex: (val: { colId: string; index: number } | null) => void;
+  handleColumnDrop: (e: React.DragEvent, colId: string) => void;
+  dropIndex: { colId: string; index: number } | null;
+  draggingId: string | null;
+  handleDragStart: (e: React.DragEvent, memoId: string) => void;
+  handleDragEnd: () => void;
+  handleMemoDragOver: (e: React.DragEvent, colId: string, idx: number) => void;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, text: string) => void;
+  onSetMarker: (id: string, color: MarkerColor) => void;
+  t: (key: any) => string;
+  onAddMemo: (text: string, color: MarkerColor, columnId?: string, extraAttachments?: Attachment[], customColor?: string, tagIds?: string[]) => void;
+}
+
 function SortableColumnWrapper({ 
   col, 
   colMemos, 
@@ -324,7 +258,7 @@ function SortableColumnWrapper({
   onSetMarker,
   t,
   onAddMemo
-}: any) {
+}: SortableColumnWrapperProps) {
   const {
     attributes,
     listeners,
@@ -376,7 +310,7 @@ function SortableColumnWrapper({
           <div className="h-1 bg-primary rounded-full mx-2 mb-1 transition-all" />
         )}
 
-        {colMemos.map((memo: any, idx: number) => (
+        {colMemos.map((memo: MemoItem, idx: number) => (
           <div key={memo.id}>
             <div
               draggable

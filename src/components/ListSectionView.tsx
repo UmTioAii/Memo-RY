@@ -94,8 +94,10 @@ export function ListSectionView({
 
   const sortedSections = [...listSections].sort((a, b) => a.order - b.order);
 
-  const getMemosBySection = (sectionId: string) =>
-    memos.filter(m => (m.listSectionId || 'todo') === sectionId);
+  const getMemosBySection = useCallback(
+    (sectionId: string) => memos.filter((m) => (m.listSectionId || 'todo') === sectionId),
+    [memos]
+  );
 
   // ── Copy, Cut, Paste Section Lists ───────────────────────────────────────────
   const handleCopySection = useCallback(async (sectionId: string) => {
@@ -109,7 +111,7 @@ export function ListSectionView({
     } catch {
       /* fallback */
     }
-  }, [memos, t]);
+  }, [getMemosBySection, t]);
 
   const handleCutSection = useCallback(async (sectionId: string) => {
     const sectionMemos = getMemosBySection(sectionId);
@@ -123,7 +125,7 @@ export function ListSectionView({
     } catch {
       /* fallback */
     }
-  }, [memos, onDeleteMultipleMemos, t]);
+  }, [getMemosBySection, onDeleteMultipleMemos, t]);
 
   const handlePasteToSection = useCallback(async (sectionId: string) => {
     try {

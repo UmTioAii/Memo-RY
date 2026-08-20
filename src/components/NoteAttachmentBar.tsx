@@ -210,8 +210,17 @@ export function NoteAttachmentBar({ onAdd, onError }: NoteAttachmentBarProps) {
   // ── Link input ──────────────────────────────────────────────────────────────
 
   const handleAddLink = () => {
-    const url = linkValue.trim();
-    if (!url) return;
+    const raw = linkValue.trim();
+    if (!raw) return;
+
+    // Extract URL if they pasted text containing a URL (e.g. address + link from Google Maps share)
+    const urlMatch = raw.match(/(https?:\/\/[^\s]+)/);
+    let url = urlMatch ? urlMatch[1] : raw;
+    
+    // Ensure it has a protocol
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
 
     let type: NoteAttachment['type'];
     if (isMapUrl(url)) type = 'map';

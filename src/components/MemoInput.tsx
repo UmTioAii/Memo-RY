@@ -1,22 +1,27 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Send, ImagePlus, X, Palette, Tags, Check } from 'lucide-react';
-import { MarkerPicker } from './MarkerPicker';
+import { Plus, Send, ImagePlus, X, Tags, Check } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { MarkerColor, Attachment } from '@/lib/types';
 import { useMemos } from '@/hooks/useMemos';
-import { HexColorPicker } from 'react-colorful';
 import * as Popover from '@radix-ui/react-popover';
+import { RichTextEditor } from './RichTextEditor';
 
 interface MemoInputProps {
-  onAdd: (text: string, color: MarkerColor, columnId?: string, extraAttachments?: Attachment[], customColor?: string, tagIds?: string[]) => void;
+  onAdd: (
+    text: string,
+    color: MarkerColor,
+    columnId?: string,
+    extraAttachments?: Attachment[],
+    customColor?: string,
+    tagIds?: string[]
+  ) => void;
 }
 
 export function MemoInput({ onAdd }: MemoInputProps) {
   const { t } = useI18n();
-  const { tags, savedColors, saveColor, removeSavedColor } = useMemos();
+  const { tags } = useMemos();
   const [text, setText] = useState('');
-  const [marker, setMarker] = useState<MarkerColor>('none');
   const [customColor, setCustomColor] = useState<string | undefined>();
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -25,9 +30,8 @@ export function MemoInput({ onAdd }: MemoInputProps) {
 
   const handleSubmit = () => {
     if (text.trim() || imageAttachments.length > 0) {
-      onAdd(text.trim(), marker, undefined, imageAttachments, customColor, tagIds);
+      onAdd(text.trim(), 'none', undefined, imageAttachments, customColor, tagIds);
       setText('');
-      setMarker('none');
       setCustomColor(undefined);
       setTagIds([]);
       setImageAttachments([]);
@@ -37,31 +41,19 @@ export function MemoInput({ onAdd }: MemoInputProps) {
 
   const handleImageUpload = (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file) => {
       if (!file.type.startsWith('image/')) return;
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64 = e.target?.result as string;
-        setImageAttachments(prev => [...prev, { type: 'image', url: base64, isBase64: true }]);
+        setImageAttachments((prev) => [...prev, { type: 'image', url: base64, isBase64: true }]);
       };
       reader.readAsDataURL(file);
     });
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) handleImageUpload(new DataTransfer().files.length ? null : (() => { const dt = new DataTransfer(); dt.items.add(file); return dt.files; })());
-      }
-    }
-  };
-
   const removeImage = (index: number) => {
-    setImageAttachments(prev => prev.filter((_, i) => i !== index));
+    setImageAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -79,34 +71,22 @@ export function MemoInput({ onAdd }: MemoInputProps) {
         </button>
       ) : (
         <div className="flex flex-col gap-3">
-          <textarea
+          <RichTextEditor
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={t('placeholder')}
-            className="w-full rounded-lg bg-background border border-input px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-            rows={3}
-            autoFocus
-            onPaste={handlePaste}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
-                  e.preventDefault();
-                  const target = e.currentTarget;
-                  const start = target.selectionStart;
-                  const end = target.selectionEnd;
-                  const val = target.value;
-                  const next = val.substring(0, start) + '\n' + val.substring(end);
-                  setText(next);
-                  setTimeout(() => {
-                    target.selectionStart = target.selectionEnd = start + 1;
-                  }, 0);
-                } else {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }
-              if (e.key === 'Escape') { setExpanded(false); setText(''); setImageAttachments([]); }
+            onChange={setText}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setExpanded(false);
+              setText('');
+              setImageAttachments([]);
             }}
+            placeholder={t('placeholder')}
+            autoFocus
+            minHeight={90}
+            maxHeight={400}
+            cardColor={customColor}
+            onCardColorChange={setCustomColor}
+            onPasteImages={handleImageUpload}
           />
 
           {/* Image previews */}
@@ -130,82 +110,16 @@ export function MemoInput({ onAdd }: MemoInputProps) {
           )}
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <MarkerPicker 
-                selected={marker} 
-                onSelect={(c) => { 
-                  setMarker(c); 
-                  if (c !== 'none') setCustomColor(undefined); 
-                }} 
-              />
-              
+            <div className="flex items-center gap-1.5">
               <Popover.Root>
                 <Popover.Trigger asChild>
-                  <button className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Cor Customizada">
-                    <Palette className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </Popover.Trigger>
-                <Popover.Portal>
-                  <Popover.Content className="z-50 p-3 bg-popover border border-border rounded-xl shadow-xl w-[224px]">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium">Cor de Fundo</span>
-                      {customColor && (
-                        <button onClick={() => setCustomColor(undefined)} className="text-[10px] text-muted-foreground hover:underline">
-                          Limpar
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex justify-center">
-                      <HexColorPicker 
-                        color={customColor || '#ffffff'} 
-                        onChange={(c) => {
-                          setCustomColor(c);
-                          setMarker('none');
-                        }} 
-                      />
-                    </div>
-                    
-                    <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">Cores Salvas</span>
-                        <button 
-                          onClick={() => saveColor(customColor || '#ffffff')}
-                          className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                        >
-                          <Plus className="h-3 w-3" /> Salvar atual
-                        </button>
-                      </div>
-                      {savedColors.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {savedColors.map(color => (
-                            <div key={color} className="group/color relative">
-                              <button 
-                                onClick={() => setCustomColor(color)}
-                                className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
-                                style={{ backgroundColor: color }}
-                                title={color}
-                              />
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeSavedColor(color); }}
-                                className="absolute -top-1 -right-1 hidden group-hover/color:flex items-center justify-center w-3 h-3 bg-destructive text-destructive-foreground rounded-full shadow-sm z-10"
-                              >
-                                <X className="w-2 h-2" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground">Nenhuma cor salva.</p>
-                      )}
-                    </div>
-                  </Popover.Content>
-                </Popover.Portal>
-              </Popover.Root>
-
-              <Popover.Root>
-                <Popover.Trigger asChild>
-                  <button className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-accent transition-colors" title="Adicionar Tags">
-                    <Tags className="h-4 w-4 text-muted-foreground" />
+                  <button
+                    type="button"
+                    className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    title="Adicionar Tags"
+                  >
+                    <Tags className="h-4 w-4" />
+                    <span>Tags {tagIds.length > 0 && `(${tagIds.length})`}</span>
                   </button>
                 </Popover.Trigger>
                 <Popover.Portal>
@@ -217,12 +131,17 @@ export function MemoInput({ onAdd }: MemoInputProps) {
                       <p className="text-xs text-muted-foreground">Nenhuma tag criada.</p>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        {tags.map(tag => {
+                        {tags.map((tag) => {
                           const isSelected = tagIds.includes(tag.id);
                           return (
                             <button
                               key={tag.id}
-                              onClick={() => setTagIds(prev => isSelected ? prev.filter(id => id !== tag.id) : [...prev, tag.id])}
+                              type="button"
+                              onClick={() =>
+                                setTagIds((prev) =>
+                                  isSelected ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
+                                )
+                              }
                               className="flex items-center justify-between p-1.5 text-xs rounded hover:bg-accent transition-colors"
                             >
                               <div className="flex items-center gap-2">
@@ -259,15 +178,22 @@ export function MemoInput({ onAdd }: MemoInputProps) {
                 onChange={(e) => handleImageUpload(e.target.files)}
               />
             </div>
+
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setExpanded(false); setText(''); setMarker('none'); setImageAttachments([]); }}
+                onClick={() => {
+                  setExpanded(false);
+                  setText('');
+                  setCustomColor(undefined);
+                  setImageAttachments([]);
+                }}
                 className="px-3 py-1.5 text-xs rounded-lg text-muted-foreground hover:bg-muted transition-colors"
               >
                 {t('cancel')}
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={!text.trim() && imageAttachments.length === 0}
                 className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -277,7 +203,6 @@ export function MemoInput({ onAdd }: MemoInputProps) {
               </button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">{t('tip')}</p>
         </div>
       )}
     </motion.div>

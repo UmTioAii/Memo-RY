@@ -47,7 +47,7 @@ const Index = () => {
         >
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-              <BookOpen className="h-4.5 w-4.5 text-primary-foreground" />
+              <BookOpen className="h-4.5 w-4.5 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">

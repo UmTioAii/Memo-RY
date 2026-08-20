@@ -3,15 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { NotebookPen, X, Plus, ArrowLeft, Trash2, Clock, Image, Mic, Link2, MapPin, Check, Palette, UploadCloud, Paperclip } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Popover from '@radix-ui/react-popover';
-import { HexColorPicker } from 'react-colorful';
 import { useNotes } from '@/hooks/useNotes';
 import { useMemos } from '@/hooks/useMemos';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useI18n } from '@/lib/i18n';
 import { saveMedia, MAX_FILE_SIZE_BYTES } from '@/lib/mediaStore';
-import { MarkerPicker } from './MarkerPicker';
 import { NoteAttachmentBar } from './NoteAttachmentBar';
 import { NoteMediaViewer } from './NoteMediaViewer';
+import { RichTextEditor } from './RichTextEditor';
+import { UnifiedColorPicker } from './UnifiedColorPicker';
 import type { Note, MarkerColor, NoteAttachment } from '@/lib/types';
 import './MarkerPicker.css';
 
@@ -85,7 +85,8 @@ function AttachmentBadges({ attachments }: { attachments: NoteAttachment[] }) {
 
 const NoteCard = React.memo(function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
   const { t } = useI18n();
-  const preview = note.content ? note.content.split('\n').find(l => l.trim()) : '';
+  const rawText = note.content ? note.content.replace(/<[^>]*>/g, ' ') : '';
+  const preview = rawText ? rawText.split('\n').find(l => l.trim()) : '';
   const markerClass = markerClasses[note.color || 'none'];
 
   const customStyle: React.CSSProperties = note.customColor
@@ -367,14 +368,42 @@ function NoteEditor({ note, onBack, onDelete, onChange, onAddAttachment, onRemov
           className="w-full text-base font-semibold bg-transparent border-0 border-b border-border pb-2 focus:outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors"
         />
 
-        {/* Content */}
-        <textarea
-          ref={textareaRef}
+        {/* Content Rich Text Editor */}
+        <RichTextEditor
           value={content}
-          onChange={e => handleContentChange(e.target.value)}
-          onPaste={handlePaste}
+          onChange={handleContentChange}
           placeholder={t('noteContent')}
-          className="w-full min-h-[160px] resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none leading-relaxed"
+          submitOnEnter={false}
+          minHeight={220}
+          maxHeight={550}
+          toolbarPosition="top"
+          onPasteImages={async (files) => {
+            for (const file of Array.from(files)) {
+              if (file.size > MAX_FILE_SIZE_BYTES) {
+                alert(t('fileTooLarge'));
+                continue;
+              }
+              try {
+                const mediaId = await saveMedia(file);
+                let type: NoteAttachment['type'] = 'file';
+                if (file.type.startsWith('image/')) type = 'photo';
+                else if (file.type.startsWith('audio/')) type = 'audio';
+                else if (file.type.startsWith('video/')) type = 'video';
+
+                onAddAttachment({
+                  id: generateId(),
+                  type,
+                  mediaId,
+                  name: file.name,
+                  size: file.size,
+                  mimeType: file.type,
+                  createdAt: Date.now(),
+                });
+              } catch (err) {
+                console.error('Failed to save pasted file:', err);
+              }
+            }
+          }}
         />
 
         {/* Media Attachments */}
@@ -394,77 +423,37 @@ function NoteEditor({ note, onBack, onDelete, onChange, onAddAttachment, onRemov
         {/* Unified Color Picker matching MemoInput / MarkerPicker with elevated margin */}
         <div className="flex items-center justify-between pt-1 pb-1.5 px-0.5">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Cor:</span>
-            <MarkerPicker
-              selected={color}
-              onSelect={handleColorChange}
-            />
-
-            {/* Custom Hex Color Picker Popover */}
+            <span className="text-xs font-medium text-muted-foreground">{t('cardColor')}:</span>
+            
+            {/* Unified Color Picker Popover */}
             <Popover.Root>
               <Popover.Trigger asChild>
                 <button
                   type="button"
-                  className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors border border-border"
-                  title="Cor Customizada"
-                  style={customColor ? { backgroundColor: customColor } : undefined}
+                  className="h-7 px-2.5 rounded-lg flex items-center gap-1.5 hover:bg-accent transition-colors border border-border text-xs text-muted-foreground hover:text-foreground"
+                  title={t('cardColor')}
+                  aria-label={t('cardColor')}
                 >
-                  <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Palette
+                    className="h-3.5 w-3.5"
+                    style={customColor ? { color: customColor } : undefined}
+                  />
+                  {customColor && (
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border"
+                      style={{ backgroundColor: customColor }}
+                    />
+                  )}
+                  <span>{customColor ? 'Customizada' : 'Cor do card'}</span>
                 </button>
               </Popover.Trigger>
               <Popover.Portal>
-                <Popover.Content className="z-50 p-3 bg-popover border border-border rounded-xl shadow-xl w-[224px]">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium">Cor de Fundo</span>
-                    {customColor && (
-                      <button
-                        onClick={() => { setCustomColor(undefined); onChange({ customColor: undefined }); }}
-                        className="text-[10px] text-muted-foreground hover:underline"
-                      >
-                        Limpar
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex justify-center">
-                    <HexColorPicker
-                      color={customColor || '#ffffff'}
-                      onChange={handleCustomColorChange}
-                    />
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">Cores Salvas</span>
-                      <button
-                        onClick={() => saveColor(customColor || '#ffffff')}
-                        className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="h-3 w-3" /> Salvar atual
-                      </button>
-                    </div>
-                    {savedColors.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {savedColors.map(c => (
-                          <div key={c} className="group/color relative">
-                            <button
-                              onClick={() => handleCustomColorChange(c)}
-                              className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removeSavedColor(c); }}
-                              className="absolute -top-1 -right-1 hidden group-hover/color:flex items-center justify-center w-3 h-3 bg-destructive text-destructive-foreground rounded-full shadow-xs z-10"
-                            >
-                              <X className="w-2 h-2" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground">Nenhuma cor salva.</p>
-                    )}
-                  </div>
+                <Popover.Content className="z-50" sideOffset={5}>
+                  <UnifiedColorPicker
+                    mode="card"
+                    color={customColor}
+                    onChange={handleCustomColorChange}
+                  />
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>

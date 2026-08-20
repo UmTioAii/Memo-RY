@@ -3,6 +3,7 @@ import { Plus, X, Pencil, Trash2 } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { useMemos } from '@/hooks/useMemos';
 import { useI18n } from '@/lib/i18n';
+import type { Tag } from '@/lib/types';
 import * as Popover from '@radix-ui/react-popover';
 
 export function TagManager() {
@@ -31,7 +32,7 @@ export function TagManager() {
     resetForm();
   };
 
-  const handleEdit = (tag: any) => {
+  const handleEdit = (tag: Tag) => {
     setEditingId(tag.id);
     setName(tag.name);
     setColor(tag.color);

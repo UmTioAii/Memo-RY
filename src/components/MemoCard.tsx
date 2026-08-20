@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Trash2, Pencil, X, Save, Palette, Tags, Plus } from 'lucide-react';
+import { Check, Trash2, Pencil, X, Save, Palette, Tags } from 'lucide-react';
 import type { MemoItem, MarkerColor } from '@/lib/types';
-import { MarkerPicker } from './MarkerPicker';
 import { AttachmentPreview } from './AttachmentPreview';
 import { useI18n } from '@/lib/i18n';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR, es, enUS } from 'date-fns/locale';
 import { useMemos } from '@/hooks/useMemos';
-import { HexColorPicker } from 'react-colorful';
 import * as Popover from '@radix-ui/react-popover';
 import { getContrastYIQ } from '@/lib/utils';
+import { RichContent } from './RichContent';
+import { RichTextEditor } from './RichTextEditor';
+import { UnifiedColorPicker } from './UnifiedColorPicker';
 
 const markerClasses: Record<MarkerColor, string> = {
   none: '',
@@ -32,13 +33,13 @@ interface MemoCardProps {
   compact?: boolean;
 }
 
-export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, compact }: MemoCardProps) {
+export function MemoCard({ memo, onToggle, onDelete, onUpdate, compact }: MemoCardProps) {
   const { t, locale } = useI18n();
-  const { tags, setCustomColor, setMemoTags, savedColors, saveColor, removeSavedColor } = useMemos();
+  const { tags, setCustomColor, setMemoTags } = useMemos();
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(memo.text);
 
-  const memoTags = tags.filter(t => memo.tagIds?.includes(t.id));
+  const memoTags = tags.filter((tag) => memo.tagIds?.includes(tag.id));
 
   const handleSave = () => {
     if (editText.trim()) {
@@ -47,26 +48,9 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
     }
   };
 
-  const renderText = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    return parts.map((part, i) => {
-      if (urlRegex.test(part)) {
-        return (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 hover:opacity-80 break-all"
-            onClick={(e) => e.stopPropagation()}>
-            {part}
-          </a>
-        );
-      }
-      return <span key={i}>{part}</span>;
-    });
-  };
-
   const toggleTag = (tagId: string) => {
     const newTags = memo.tagIds?.includes(tagId)
-      ? memo.tagIds.filter(id => id !== tagId)
+      ? memo.tagIds.filter((id) => id !== tagId)
       : [...(memo.tagIds || []), tagId];
     setMemoTags(memo.id, newTags);
   };
@@ -79,26 +63,34 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
       exit={{ opacity: 0, y: -12, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className={`group relative rounded-xl border p-4 transition-shadow hover:shadow-md ${
-        (memo.completed || memo.markerColor !== 'none' || memo.customColor) ? 'border-l-4' : 'border border-border'
-      } ${memo.completed ? 'bg-green-100/60 dark:bg-green-900/30 border-green-200 dark:border-green-800' : 'bg-card border-border'}`}
+        memo.completed || memo.markerColor !== 'none' || memo.customColor ? 'border-l-4' : 'border border-border'
+      } ${
+        memo.completed
+          ? 'bg-green-100/60 dark:bg-green-900/30 border-green-200 dark:border-green-800'
+          : 'bg-card border-border'
+      }`}
       style={
         memo.completed
           ? { borderLeftColor: 'rgb(34 197 94)' }
           : {
               ...(memo.customColor
                 ? { borderLeftColor: memo.customColor }
-                : (memo.markerColor !== 'none' ? { borderLeftColor: `hsl(var(--marker-${memo.markerColor}))` } : {})
-              )
+                : memo.markerColor !== 'none'
+                ? { borderLeftColor: `hsl(var(--marker-${memo.markerColor}))` }
+                : {}),
             }
       }
     >
       {/* Topo: checkbox + conteúdo */}
       <div className="flex items-start gap-3">
         <button
+          type="button"
           onClick={() => onToggle(memo.id)}
           className={`mt-0.5 h-5 w-5 shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
             memo.completed ? 'bg-green-500 border-green-500' : 'border-muted-foreground/30 hover:border-primary'
           }`}
+          title={memo.completed ? 'Desmarcar' : 'Concluir'}
+          aria-label={memo.completed ? 'Desmarcar' : 'Concluir'}
         >
           {memo.completed && <Check className="h-3 w-3 text-white" />}
         </button>
@@ -106,38 +98,29 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex flex-col gap-2">
-              <textarea
+              <RichTextEditor
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                rows={3}
+                onChange={setEditText}
+                onSubmit={handleSave}
+                onCancel={() => setEditing(false)}
                 autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
-                      e.preventDefault();
-                      const target = e.currentTarget;
-                      const start = target.selectionStart;
-                      const end = target.selectionEnd;
-                      const val = target.value;
-                      const next = val.substring(0, start) + '\n' + val.substring(end);
-                      setEditText(next);
-                      setTimeout(() => {
-                        target.selectionStart = target.selectionEnd = start + 1;
-                      }, 0);
-                    } else {
-                      e.preventDefault();
-                      handleSave();
-                    }
-                  }
-                  if (e.key === 'Escape') setEditing(false);
-                }}
+                minHeight={80}
+                maxHeight={300}
+                toolbarPosition="bottom"
               />
               <div className="flex gap-2">
-                <button onClick={handleSave} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                >
                   <Save className="h-3 w-3" /> {t('save')}
                 </button>
-                <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                >
                   <X className="h-3 w-3" /> {t('cancel')}
                 </button>
               </div>
@@ -146,10 +129,10 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
             <>
               {memoTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {memoTags.map(tag => (
+                  {memoTags.map((tag) => (
                     <span
                       key={tag.id}
-                      className="px-2 py-0.5 rounded-full text-[10px] font-medium shadow-sm"
+                      className="px-2 py-0.5 rounded-full text-[10px] font-medium shadow-xs"
                       style={{ backgroundColor: tag.color, color: getContrastYIQ(tag.color) }}
                     >
                       {tag.name}
@@ -158,20 +141,24 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                 </div>
               )}
 
-              <p
-                className={`text-sm leading-relaxed whitespace-pre-wrap break-words text-foreground px-1 -mx-1 rounded ${
+              <div
+                className={`text-sm leading-relaxed text-foreground px-1 -mx-1 rounded ${
                   memo.completed
                     ? 'bg-green-500/20 dark:bg-green-500/20'
-                    : (!memo.customColor && markerClasses[memo.markerColor] ? markerClasses[memo.markerColor] : '')
+                    : !memo.customColor && markerClasses[memo.markerColor]
+                    ? markerClasses[memo.markerColor]
+                    : ''
                 }`}
                 style={
                   memo.completed
                     ? {}
-                    : (memo.customColor ? { backgroundColor: `color-mix(in srgb, ${memo.customColor} 30%, transparent)` } : {})
+                    : memo.customColor
+                    ? { backgroundColor: `color-mix(in srgb, ${memo.customColor} 30%, transparent)` }
+                    : {}
                 }
               >
-                {renderText(memo.text)}
-              </p>
+                <RichContent content={memo.text} />
+              </div>
 
               {memo.attachments.length > 0 && (
                 <div className="flex flex-col gap-1 mt-1">
@@ -192,68 +179,41 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
             {formatDistanceToNow(memo.createdAt, { addSuffix: true, locale: dateLocales[locale] })}
           </p>
           <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-            <MarkerPicker selected={memo.markerColor} onSelect={(c) => onSetMarker(memo.id, c)} compact />
-
+            {/* Unified Color Picker Popover for Card Color */}
             <Popover.Root>
               <Popover.Trigger asChild>
-                <button className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0" title="Cor Customizada">
-                  <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                <button
+                  type="button"
+                  className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+                  title={t('cardColor')}
+                  aria-label={t('cardColor')}
+                >
+                  <Palette
+                    className="h-3.5 w-3.5"
+                    style={memo.customColor ? { color: memo.customColor } : undefined}
+                  />
                 </button>
               </Popover.Trigger>
               <Popover.Portal>
-                <Popover.Content className="z-50 p-3 bg-popover border border-border rounded-xl shadow-xl w-[224px]">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium">Cor de Fundo</span>
-                    {memo.customColor && (
-                      <button onClick={() => setCustomColor(memo.id, undefined)} className="text-[10px] text-muted-foreground hover:underline">
-                        Limpar
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex justify-center">
-                    <HexColorPicker color={memo.customColor || '#ffffff'} onChange={(c) => setCustomColor(memo.id, c)} />
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">Cores Salvas</span>
-                      <button
-                        onClick={() => saveColor(memo.customColor || '#ffffff')}
-                        className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="h-3 w-3" /> Salvar atual
-                      </button>
-                    </div>
-                    {savedColors.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {savedColors.map(color => (
-                          <div key={color} className="group/color relative">
-                            <button
-                              onClick={() => setCustomColor(memo.id, color)}
-                              className="w-5 h-5 rounded-full border border-border transition-transform hover:scale-110"
-                              style={{ backgroundColor: color }}
-                              title={color}
-                            />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removeSavedColor(color); }}
-                              className="absolute -top-1 -right-1 hidden group-hover/color:flex items-center justify-center w-3 h-3 bg-destructive text-destructive-foreground rounded-full shadow-sm z-10"
-                            >
-                              <X className="w-2 h-2" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground">Nenhuma cor salva.</p>
-                    )}
-                  </div>
+                <Popover.Content className="z-50" sideOffset={5}>
+                  <UnifiedColorPicker
+                    mode="card"
+                    color={memo.customColor}
+                    onChange={(c) => setCustomColor(memo.id, c)}
+                  />
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>
 
+            {/* Tag Selection Popover */}
             <Popover.Root>
               <Popover.Trigger asChild>
-                <button className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0" title="Adicionar Tags">
+                <button
+                  type="button"
+                  className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+                  title="Adicionar Tags"
+                  aria-label="Adicionar Tags"
+                >
                   <Tags className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </Popover.Trigger>
@@ -266,11 +226,12 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
                     <p className="text-xs text-muted-foreground">Nenhuma tag criada.</p>
                   ) : (
                     <div className="flex flex-col gap-1">
-                      {tags.map(tag => {
+                      {tags.map((tag) => {
                         const isSelected = memo.tagIds?.includes(tag.id);
                         return (
                           <button
                             key={tag.id}
+                            type="button"
                             onClick={() => toggleTag(tag.id)}
                             className="flex items-center justify-between p-1.5 text-xs rounded hover:bg-accent transition-colors"
                           >
@@ -289,14 +250,23 @@ export function MemoCard({ memo, onToggle, onDelete, onUpdate, onSetMarker, comp
             </Popover.Root>
 
             <button
-              onClick={() => { setEditText(memo.text); setEditing(true); }}
+              type="button"
+              onClick={() => {
+                setEditText(memo.text);
+                setEditing(true);
+              }}
               className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+              title={t('rename')}
+              aria-label={t('rename')}
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
             <button
+              type="button"
               onClick={() => onDelete(memo.id)}
               className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-destructive/10 transition-colors shrink-0"
+              title={t('delete')}
+              aria-label={t('delete')}
             >
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </button>

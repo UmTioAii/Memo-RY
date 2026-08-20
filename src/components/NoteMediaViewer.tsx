@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  X, Play, Pause, Maximize2, Navigation, Copy, Check, ExternalLink, Mic,
+  X, Play, Pause, Maximize2, Navigation, Copy, Check, ExternalLink, Mic, MapPin,
   Download, Share2, FileText, FileArchive, FileCode, FileSpreadsheet, File, Video, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,10 +27,30 @@ function getMapCoords(url: string): { lat: number; lng: number } | null {
   if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
   const q = url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
   if (q) return { lat: parseFloat(q[1]), lng: parseFloat(q[2]) };
+  const cp = url.match(/cp=(-?\d+\.?\d*)~(-?\d+\.?\d*)/);
+  if (cp) return { lat: parseFloat(cp[1]), lng: parseFloat(cp[2]) };
   return null;
 }
 
+function isShortMapUrl(url: string): boolean {
+  return /goo\.gl\/maps|maps\.app\.goo\.gl/i.test(url);
+}
+
 function getMapEmbedUrl(url: string): string {
+  // Bing Maps
+  if (url.includes('bing.com/maps')) {
+    if (url.includes('/embed')) return url;
+    const cpMatch = url.match(/cp=(-?\d+\.?\d*)~(-?\d+\.?\d*)/);
+    if (cpMatch) {
+      return `https://www.bing.com/maps/embed?h=400&w=500&cp=${cpMatch[1]}~${cpMatch[2]}&lvl=15&typ=d&sty=r&src=SHELL&FORM=MBEDV8`;
+    }
+    const qMatch = url.match(/[?&]q=([^&]+)/);
+    if (qMatch) {
+      return `https://www.bing.com/maps/embed?h=400&w=500&q=${qMatch[1]}&lvl=15&typ=d&sty=r&src=SHELL&FORM=MBEDV8`;
+    }
+  }
+
+  // Google Maps
   const coords = getMapCoords(url);
   if (coords) {
     return `https://maps.google.com/maps?q=${coords.lat},${coords.lng}&output=embed&z=15`;
@@ -40,6 +60,16 @@ function getMapEmbedUrl(url: string): string {
     const place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
     return `https://maps.google.com/maps?q=${encodeURIComponent(place)}&output=embed`;
   }
+  const searchMatch = url.match(/search\/([^/@?]+)/);
+  if (searchMatch) {
+    const search = decodeURIComponent(searchMatch[1].replace(/\+/g, ' '));
+    return `https://maps.google.com/maps?q=${encodeURIComponent(search)}&output=embed`;
+  }
+  const qMatch = url.match(/[?&]q=([^&]+)/);
+  if (qMatch) {
+    return `https://maps.google.com/maps?q=${qMatch[1]}&output=embed`;
+  }
+
   const cleaned = url.replace(/[?&]output=[^&]*/g, '');
   return cleaned + (cleaned.includes('?') ? '&' : '?') + 'output=embed';
 }
@@ -430,7 +460,8 @@ const MapItem = React.memo(function MapItem({ att, onRemove }: { att: NoteAttach
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const url = att.url ?? '';
-  const embedUrl = getMapEmbedUrl(url);
+  const isShort = isShortMapUrl(url);
+  const embedUrl = !isShort ? getMapEmbedUrl(url) : '';
   const coords = getMapCoords(url);
 
   const handleCopy = async () => {
@@ -451,7 +482,7 @@ const MapItem = React.memo(function MapItem({ att, onRemove }: { att: NoteAttach
     );
   };
 
-  const label = att.name
+  const label = att.name && att.name !== url
     ? att.name
     : coords
       ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
@@ -459,16 +490,33 @@ const MapItem = React.memo(function MapItem({ att, onRemove }: { att: NoteAttach
 
   return (
     <div className="border border-border rounded-xl overflow-hidden group relative">
-      {/* Map iframe */}
-      <div className="h-44 bg-muted">
-        <iframe
-          src={embedUrl}
-          title="Mapa"
-          className="w-full h-full border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-      </div>
+      {isShort ? (
+        /* ── Short link card (no iframe) ────────────────────────── */
+        <div className="h-44 bg-gradient-to-br from-sky-500/10 via-emerald-500/8 to-teal-500/10 flex flex-col items-center justify-center gap-3 px-4">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-sky-500/20 to-emerald-500/20 border border-sky-500/20 flex items-center justify-center">
+            <MapPin className="h-7 w-7 text-sky-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-medium text-foreground/80 mb-0.5">
+              {att.name && att.name !== url
+                ? att.name.replace(/(https?:\/\/[^\s]+)/g, '').trim().slice(0, 60) || 'Localização compartilhada'
+                : 'Localização compartilhada'}
+            </p>
+            <p className="text-[10px] text-muted-foreground">{getDomain(url)}</p>
+          </div>
+        </div>
+      ) : (
+        /* ── Embeddable map iframe ──────────────────────────────── */
+        <div className="h-44 bg-muted">
+          <iframe
+            src={embedUrl}
+            title="Mapa"
+            className="w-full h-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      )}
 
       {/* Bottom bar */}
       <div className="flex items-center gap-1.5 px-3 py-2 bg-card">
