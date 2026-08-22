@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NotebookPen, X, Plus, ArrowLeft, Trash2, Clock, Image, Mic, Link2, MapPin, Check, Palette, UploadCloud, Paperclip } from 'lucide-react';
+import { NotebookPen, X, Plus, ArrowLeft, Trash2, Clock, Image, Mic, Link2, MapPin, Check, Palette, UploadCloud, Paperclip, Video } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Popover from '@radix-ui/react-popover';
 import { useNotes } from '@/hooks/useNotes';
@@ -50,18 +50,71 @@ function relativeTime(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
+function decodeHtmlEntities(text: string): string {
+  if (typeof document === 'undefined') {
+    return text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
+function getNoteTextPreview(content: string): string {
+  const text = decodeHtmlEntities(
+    content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+      .replace(/<[^>]*>/g, ' ')
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return text.length > 180 ? `${text.slice(0, 177).trim()}...` : text;
+}
+
+function getAttachmentSummary(attachments: NoteAttachment[] = []): string {
+  const counts = {
+    photo: attachments.filter(a => a.type === 'photo').length,
+    audio: attachments.filter(a => a.type === 'audio').length,
+    video: attachments.filter(a => a.type === 'video').length,
+    file: attachments.filter(a => a.type === 'file').length,
+    link: attachments.filter(a => a.type === 'link').length,
+    map: attachments.filter(a => a.type === 'map').length,
+  };
+
+  const parts = [
+    counts.photo ? `${counts.photo} foto${counts.photo > 1 ? 's' : ''}` : '',
+    counts.audio ? `${counts.audio} áudio${counts.audio > 1 ? 's' : ''}` : '',
+    counts.video ? `${counts.video} vídeo${counts.video > 1 ? 's' : ''}` : '',
+    counts.file ? `${counts.file} arquivo${counts.file > 1 ? 's' : ''}` : '',
+    counts.link ? `${counts.link} link${counts.link > 1 ? 's' : ''}` : '',
+    counts.map ? `${counts.map} mapa${counts.map > 1 ? 's' : ''}` : '',
+  ].filter(Boolean);
+
+  return parts.length > 0 ? `Contém ${parts.join(', ')}` : '';
+}
+
 // ─── Attachment count badges for NoteCard ────────────────────────────────────
 
 function AttachmentBadges({ attachments }: { attachments: NoteAttachment[] }) {
   const photos  = attachments.filter(a => a.type === 'photo').length;
   const audios  = attachments.filter(a => a.type === 'audio').length;
+  const videos  = attachments.filter(a => a.type === 'video').length;
   const files   = attachments.filter(a => a.type === 'file').length;
-  const links   = attachments.filter(a => a.type === 'link' || a.type === 'video').length;
+  const links   = attachments.filter(a => a.type === 'link').length;
   const maps    = attachments.filter(a => a.type === 'map').length;
 
   const badges = [
     { count: photos, Icon: Image },
     { count: audios, Icon: Mic },
+    { count: videos, Icon: Video },
     { count: files,  Icon: Paperclip },
     { count: links,  Icon: Link2 },
     { count: maps,   Icon: MapPin },
@@ -85,8 +138,9 @@ function AttachmentBadges({ attachments }: { attachments: NoteAttachment[] }) {
 
 const NoteCard = React.memo(function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
   const { t } = useI18n();
-  const rawText = note.content ? note.content.replace(/<[^>]*>/g, ' ') : '';
-  const preview = rawText ? rawText.split('\n').find(l => l.trim()) : '';
+  const textPreview = getNoteTextPreview(note.content || '');
+  const attachmentSummary = getAttachmentSummary(note.noteAttachments);
+  const preview = textPreview || attachmentSummary;
   const markerClass = markerClasses[note.color || 'none'];
 
   const customStyle: React.CSSProperties = note.customColor
@@ -107,7 +161,7 @@ const NoteCard = React.memo(function NoteCard({ note, onClick }: { note: Note; o
             {note.title || t('untitled')}
           </p>
           {preview && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">
               {preview}
             </p>
           )}
@@ -418,7 +472,7 @@ function NoteEditor({ note, onBack, onDelete, onChange, onAddAttachment, onRemov
       {/* Bottom Controls */}
       <div className="shrink-0 pt-3 border-t border-border space-y-3 mt-1 bg-background pb-3">
         {/* Attachment Action Bar */}
-        <NoteAttachmentBar onAdd={onAddAttachment} />
+        <NoteAttachmentBar onAdd={onAddAttachment} onRemove={onRemoveAttachment} />
 
         {/* Unified Color Picker matching MemoInput / MarkerPicker with elevated margin */}
         <div className="flex items-center justify-between pt-1 pb-1.5 px-0.5">

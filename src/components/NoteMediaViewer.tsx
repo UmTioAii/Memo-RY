@@ -250,6 +250,7 @@ const AudioItem = React.memo(function AudioItem({ att, onRemove }: { att: NoteAt
     if (!att.mediaId) return;
     let isCurrent = true;
     let url = '';
+    const audio = audioRef.current;
     getMediaUrl(att.mediaId).then(u => {
       if (u && isCurrent) {
         url = u;
@@ -258,7 +259,7 @@ const AudioItem = React.memo(function AudioItem({ att, onRemove }: { att: NoteAt
     }).catch(console.error);
     return () => {
       isCurrent = false;
-      audioRef.current?.pause();
+      audio?.pause();
       if (url) URL.revokeObjectURL(url);
     };
   }, [att.mediaId]);
@@ -383,6 +384,186 @@ const AudioItem = React.memo(function AudioItem({ att, onRemove }: { att: NoteAt
         </button>
       </div>
     </div>
+  );
+});
+
+// ─── Local video item ────────────────────────────────────────────────────────
+
+const VideoItem = React.memo(function VideoItem({ att, onRemove }: { att: NoteAttachment; onRemove: () => void }) {
+  const { t } = useI18n();
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(att.duration && isFinite(att.duration) ? att.duration : 0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!att.mediaId) return;
+    let isCurrent = true;
+    let url = '';
+    const video = videoRef.current;
+    getMediaUrl(att.mediaId).then(u => {
+      if (u && isCurrent) {
+        url = u;
+        setObjectUrl(u);
+      }
+    }).catch(console.error);
+    return () => {
+      isCurrent = false;
+      video?.pause();
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [att.mediaId]);
+
+  const handleLoadedMetadata = () => {
+    const duration = videoRef.current?.duration ?? 0;
+    if (isFinite(duration) && !isNaN(duration) && duration > 0) {
+      setVideoDuration(duration);
+    }
+  };
+
+  const fileName = att.name || 'video.webm';
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (att.mediaId) downloadMediaFile(att.mediaId, fileName);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (att.mediaId) shareMediaFile(att.mediaId, fileName, att.mimeType || 'video/webm');
+  };
+
+  return (
+    <>
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs transition-colors hover:border-primary/40">
+        <div className="relative aspect-video bg-black">
+          {objectUrl ? (
+            <video
+              ref={videoRef}
+              src={objectUrl}
+              controls
+              preload="metadata"
+              className="h-full w-full bg-black object-contain"
+              onLoadedMetadata={handleLoadedMetadata}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted">
+              <Video className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            disabled={!objectUrl}
+            title={t('preview')}
+            aria-label={t('preview')}
+            className="absolute right-2 top-2 h-8 w-8 rounded-lg bg-black/60 text-white transition-colors hover:bg-black/80 disabled:opacity-40 flex items-center justify-center"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 p-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Video className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-foreground" title={att.name}>
+                {att.name || t('videoRecorded')}
+              </p>
+              <p className="text-[10px] text-muted-foreground font-mono">
+                {videoDuration > 0 ? formatTime(videoDuration) : '--:--'}
+                {att.size ? ` · ${formatFileSize(att.size)}` : ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {att.mediaId && (
+              <>
+                <button
+                  onClick={handleDownload}
+                  title={t('download')}
+                  aria-label={t('download')}
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleShare}
+                  title={t('share')}
+                  aria-label={t('share')}
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={onRemove}
+              title={t('delete')}
+              aria-label={t('delete')}
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expanded && objectUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setExpanded(false)}
+          >
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              {att.mediaId && (
+                <>
+                  <button
+                    onClick={handleDownload}
+                    title={t('download')}
+                    className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors text-white"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    title={t('share')}
+                    className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors text-white"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+              <button
+                aria-label="Fechar"
+                onClick={() => setExpanded(false)}
+                className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <motion.video
+              initial={{ scale: 0.92 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.92 }}
+              src={objectUrl}
+              controls
+              autoPlay
+              className="max-h-[90vh] max-w-full rounded-xl bg-black shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 });
 
@@ -579,9 +760,10 @@ interface NoteMediaViewerProps {
 export function NoteMediaViewer({ attachments, onRemove }: NoteMediaViewerProps) {
   const photos = attachments.filter(a => a.type === 'photo');
   const audios = attachments.filter(a => a.type === 'audio');
+  const localVideos = attachments.filter(a => a.type === 'video' && a.mediaId);
   const files  = attachments.filter(a => a.type === 'file');
   const maps   = attachments.filter(a => a.type === 'map');
-  const links  = attachments.filter(a => a.type === 'link' || a.type === 'video');
+  const links  = attachments.filter(a => a.type === 'link' || (a.type === 'video' && a.url));
 
   if (attachments.length === 0) return null;
 
@@ -617,6 +799,21 @@ export function NoteMediaViewer({ attachments, onRemove }: NoteMediaViewerProps)
             exit={{ opacity: 0, y: -6 }}
           >
             <AudioItem att={att} onRemove={() => onRemove(att.id, att.mediaId)} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
+      {/* Local Video cards */}
+      <AnimatePresence initial={false}>
+        {localVideos.map(att => (
+          <motion.div
+            key={att.id}
+            layout
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+          >
+            <VideoItem att={att} onRemove={() => onRemove(att.id, att.mediaId)} />
           </motion.div>
         ))}
       </AnimatePresence>
